@@ -528,6 +528,100 @@
       box-shadow: var(--glow-box-shadow);
       display: none;
     }
+    
+    /* Media queries para Mobile */
+    @media (max-width: 900px) {
+      .app-container {
+        height: auto;
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      header {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+        text-align: center;
+      }
+      
+      .logo-container h1 {
+        justify-content: center;
+      }
+      
+      .stats-summary {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.8rem;
+        width: 100%;
+      }
+      
+      .stat-badge {
+        font-size: 0.75rem;
+      }
+      
+      main {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+      }
+      
+      .sidebar-left {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--panel-border);
+        overflow-y: visible;
+        padding: 1rem;
+      }
+      
+      .content-area {
+        width: 100%;
+        height: auto;
+        overflow: visible;
+      }
+      
+      .tab-bar {
+        padding: 0.5rem 1rem 0 1rem;
+        overflow-x: auto;
+        white-space: nowrap;
+        display: flex;
+      }
+      
+      .tab-btn {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+      }
+      
+      .tab-content-container {
+        padding: 1rem;
+        height: auto;
+        overflow: visible;
+      }
+      
+      .scatter-wrapper {
+        min-height: 350px;
+        height: 350px;
+      }
+      
+      .sidebar-right {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--panel-border);
+        overflow-y: visible;
+        padding: 1rem;
+      }
+      
+      .radar-wrapper {
+        height: 200px;
+      }
+      
+      .load-card {
+        padding: 1.5rem;
+        margin: 1rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -4364,6 +4458,11 @@
       
       document.getElementById("no-detail-selected").style.display = "none";
       document.getElementById("detail-panel").style.display = "block";
+      
+      // En mobile, hacer scroll suave al panel de detalle
+      if (window.innerWidth <= 900) {
+        document.getElementById("detail-panel").scrollIntoView({ behavior: 'smooth' });
+      }
       
       // Textos basicos
       document.getElementById("det-name").innerText = candidate.name;
