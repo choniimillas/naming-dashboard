@@ -1,0 +1,18 @@
+# Ignorar credenciales y archivos sensibles
+.env
+_chat.txt
+
+# Ignorar archivos pesados o temporales
+checkpoint.json
+pipeline.log
+__pycache__/
+*.pyc
+
+# Ignorar scripts de test/diagnóstico locales
+test_apis.py
+list_nvidia_models.py
+test_nvidia_candidates.py
+test_nvidia_evaluators.py
+test_more_nvidia.py
+test_batch_generation.py
+embed_data.py

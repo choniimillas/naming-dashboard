@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Naming Estocástico — Dashboard de Resultados</title>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Chart.js and D3.js CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-dark: #0a0a0f;
+      --panel-bg: rgba(18, 18, 29, 0.7);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.2);
+      --accent-blue: #3b82f6;
+      --accent-blue-glow: rgba(59, 130, 246, 0.2);
+      --accent-purple: #8b5cf6;
+      --accent-red: #ef4444;
+      --accent-orange: #f59e0b;
+      
+      --glow-box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(139, 92, 246, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 40%);
+    }
+    
+    /* Layout */
+    .app-container {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+    
+    header {
+      background: rgba(10, 10, 15, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+    }
+    
+    .logo-container h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: -0.025em;
+      background: linear-gradient(135deg, #fff 30%, var(--accent-emerald) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .logo-container span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--accent-emerald);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin-left: 0.5rem;
+    }
+    
+    .stats-summary {
+      display: flex;
+      gap: 1.5rem;
+    }
+    
+    .stat-badge {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-left: 2px solid var(--accent-emerald);
+      padding-left: 0.5rem;
+    }
+    
+    .stat-badge strong {
+      display: block;
+      color: #fff;
+      font-size: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr 380px;
+      overflow: hidden;
+    }
+    
+    /* Sidebar Filtros */
+    .sidebar-left {
+      background: rgba(13, 13, 20, 0.4);
+      border-right: 1px solid var(--panel-border);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      overflow-y: auto;
+    }
+    
+    .sidebar-left h2 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+    
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .filter-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    
+    .btn-group-toggle {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    
+    .btn-toggle {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.4rem 0;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-toggle:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+    }
+    
+    .btn-toggle.active {
+      background: var(--accent-emerald);
+      color: #000;
+    }
+    
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .slider {
+      flex: 1;
+      accent-color: var(--accent-emerald);
+    }
+    
+    .slider-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      width: 2rem;
+      text-align: right;
+    }
+    
+    select, input[type="file"] {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.5rem;
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+      width: 100%;
+      cursor: pointer;
+    }
+    
+    select:focus {
+      border-color: var(--accent-emerald);
+    }
+    
+    .checkbox-container {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    
+    .checkbox-container input {
+      accent-color: var(--accent-emerald);
+    }
+    
+    /* Panel Central (Dashboard & Tabs) */
+    .content-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .tab-bar {
+      display: flex;
+      background: rgba(13, 13, 20, 0.3);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 0.5rem 1.5rem 0 1.5rem;
+      gap: 0.5rem;
+    }
+    
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-muted);
+      padding: 0.6rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn:hover {
+      color: #fff;
+    }
+    
+    .tab-btn.active {
+      color: var(--accent-emerald);
+      border-bottom-color: var(--accent-emerald);
+      font-weight: 600;
+    }
+    
+    .tab-content-container {
+      flex: 1;
+      padding: 1.5rem;
+      overflow-y: auto;
+      position: relative;
+    }
+    
+    .tab-content {
+      display: none;
+      height: 100%;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    /* Scatter Plot */
+    .scatter-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 500px;
+      background: rgba(13, 13, 20, 0.2);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    
+    #scatter-svg {
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Funnel / Charts */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+    
+    .chart-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      position: relative;
+    }
+    
+    .chart-panel h3 {
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    /* Shortlist Tab */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+    
+    th, td {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--panel-border);
+    }
+    
+    th {
+      background: rgba(255, 255, 255, 0.02);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    
+    tr {
+      cursor: pointer;
+      transition: background-color 0.15s;
+    }
+    
+    tr:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    
+    tr.selected {
+      background: rgba(16, 185, 129, 0.05);
+      border-left: 2px solid var(--accent-emerald);
+    }
+    
+    .badge-tier {
+      display: inline-block;
+      font-weight: 800;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+    
+    .tier-A { background: var(--accent-emerald-glow); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
+    .tier-B { background: var(--accent-blue-glow); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+    .tier-C { background: rgba(245, 158, 11, 0.1); color: var(--accent-orange); border: 1px solid var(--accent-orange); }
+    .tier-D { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    
+    .status-ok { color: var(--accent-emerald); }
+    .status-fail { color: var(--accent-red); }
+    
+    /* Sidebar Derecha (Detalles) */
+    .sidebar-right {
+      background: rgba(13, 13, 20, 0.4);
+      border-left: 1px solid var(--panel-border);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      overflow-y: auto;
+    }
+    
+    .detail-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    
+    .detail-name {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    
+    .detail-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    
+    .radar-wrapper {
+      width: 100%;
+      height: 220px;
+      position: relative;
+    }
+    
+    .stress-test-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--panel-border);
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .stress-lbl {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+    
+    .stress-txt {
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: #fff;
+    }
+    
+    /* Mock overlay / Carga manual */
+    .load-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(10, 10, 15, 0.95);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 2rem;
+      text-align: center;
+    }
+    
+    .load-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 2.5rem;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: var(--glow-box-shadow);
+    }
+    
+    .load-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .load-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    
+    .btn-primary {
+      background: var(--accent-emerald);
+      color: #000;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      width: 100%;
+      margin-bottom: 0.8rem;
+    }
+    
+    .btn-primary:hover {
+      box-shadow: 0 0 15px var(--accent-emerald);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      border: 1px solid var(--panel-border);
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+      width: 100%;
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* D3 tooltip */
+    .d3-tooltip {
+      position: absolute;
+      background: rgba(13, 13, 20, 0.95);
+      border: 1px solid var(--accent-emerald);
+      border-radius: 6px;
+      padding: 0.8rem;
+      pointer-events: none;
+      font-size: 0.8rem;
+      z-index: 1000;
+      box-shadow: var(--glow-box-shadow);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="app-container">
+    <!-- Header -->
+    <header>
+      <div class="logo-container">
+        <h1>ANTIGRAVITY Naming System<span>v3.0</span></h1>
+      </div>
+      <div class="stats-summary" id="header-stats">
+        <div class="stat-badge">Generados <strong id="stat-total">-</strong></div>
+        <div class="stat-badge">Únicos <strong id="stat-unique">-</strong></div>
+        <div class="stat-badge">Tier A / B <strong id="stat-tier-ab">-</strong></div>
+        <div class="stat-badge">Duración <strong id="stat-duration">-</strong></div>
+      </div>
+    </header>
+    
+    <!-- Main content grid -->
+    <main>
+      <!-- Sidebar Izquierda: Filtros -->
+      <section class="sidebar-left">
+        <h2>Filtros Globales</h2>
+        
+        <div class="filter-group">
+          <label class="filter-label">Tiers Visibles</label>
+          <div class="btn-group-toggle" id="tier-filter">
+            <button class="btn-toggle active" data-tier="A">A</button>
+            <button class="btn-toggle active" data-tier="B">B</button>
+            <button class="btn-toggle" data-tier="C">C</button>
+            <button class="btn-toggle" data-tier="D">D</button>
+          </div>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Score Mínimo (Juez)</label>
+          <div class="slider-container">
+            <input type="range" id="filter-score-min" min="0" max="100" value="50" class="slider">
+            <span class="slider-val" id="filter-score-min-val">50</span>
+          </div>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Sílabas Máximas</label>
+          <div class="slider-container">
+            <input type="range" id="filter-syllables" min="1" max="4" value="4" class="slider">
+            <span class="slider-val" id="filter-syllables-val">4</span>
+          </div>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Ángulo Semántico</label>
+          <select id="filter-angle">
+            <option value="all">Todos los ángulos</option>
+            <option value="fabricar">Fabricación</option>
+            <option value="cliente_obtiene">Beneficio Cliente</option>
+            <option value="instrumento">Instrumento / Herramienta</option>
+            <option value="hecho_de">Componente / Hecho de</option>
+            <option value="terreno">Terreno / Campo</option>
+            <option value="hace">Acción / Hace</option>
+            <option value="relacion">Relación / Conexión</option>
+            <option value="origen_inventado">Origen Inventado</option>
+          </select>
+        </div>
+        
+        <div class="filter-group">
+          <label class="checkbox-container">
+            <input type="checkbox" id="filter-domain-com"> .com Disponible (DNS)
+          </label>
+          <label class="checkbox-container">
+            <input type="checkbox" id="filter-domain-com-ar"> .com.ar Disponible (DNS)
+          </label>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid var(--panel-border); margin: 0.5rem 0;">
+        
+        <div class="filter-group">
+          <button class="btn-secondary" id="btn-export" style="font-size: 0.75rem;">Exportar Shortlist (CSV)</button>
+        </div>
+      </section>
+      
+      <!-- Contenido Principal -->
+      <section class="content-area">
+        <!-- Pestañas -->
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="tab-scatter">Scatter Rareza vs Relevancia</button>
+          <button class="tab-btn" data-tab="tab-funnel">Funnel de Supervivencia</button>
+          <button class="tab-btn" data-tab="tab-angles">Análisis por Ángulo</button>
+          <button class="tab-btn" data-tab="tab-shortlist">Shortlist Final</button>
+        </div>
+        
+        <!-- Pestañas de Contenido -->
+        <div class="tab-content-container">
+          <!-- Scatter Plot D3 -->
+          <div class="tab-content active" id="tab-scatter">
+            <div class="scatter-wrapper">
+              <svg id="scatter-svg"></svg>
+              <div class="d3-tooltip" id="scatter-tooltip"></div>
+            </div>
+          </div>
+          
+          <!-- Funnel Chart.js -->
+          <div class="tab-content" id="tab-funnel">
+            <div class="chart-grid">
+              <div class="chart-panel">
+                <h3>Funnel de Filtrado Progresivo</h3>
+                <div style="height: 320px; position: relative;">
+                  <canvas id="funnel-chart"></canvas>
+                </div>
+              </div>
+              <div class="chart-panel">
+                <h3>Mejora de Calidad por Ronda (Score Promedio)</h3>
+                <div style="height: 200px; position: relative;">
+                  <canvas id="evolution-chart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Análisis por Ángulo Chart.js -->
+          <div class="tab-content" id="tab-angles">
+            <div class="chart-grid">
+              <div class="chart-panel">
+                <h3>Rendimiento Semántico: Promedio de Score por Ángulo</h3>
+                <div style="height: 380px; position: relative;">
+                  <canvas id="angles-chart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Shortlist Tab -->
+          <div class="tab-content" id="tab-shortlist">
+            <div class="table-container">
+              <table id="shortlist-table">
+                <thead>
+                  <tr>
+                    <th>Tier</th>
+                    <th>Nombre</th>
+                    <th>Ángulo</th>
+                    <th>Sílabas</th>
+                    <th>Fonet.</th>
+                    <th>Estrat.</th>
+                    <th>Legal</th>
+                    <th>Taller</th>
+                    <th>Score</th>
+                  </tr>
+                </thead>
+                <tbody id="shortlist-tbody">
+                  <!-- Se llena dinámicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      <!-- Sidebar Derecha: Detalles del Candidato -->
+      <section class="sidebar-right">
+        <h2>Detalle del Candidato</h2>
+        
+        <div id="no-detail-selected" style="color: var(--text-muted); font-size: 0.85rem; text-align: center; margin-top: 5rem;">
+          Haz click en un candidato para inspeccionar sus métricas y test de estrés.
+        </div>
+        
+        <div id="detail-panel" style="display: none;">
+          <div class="detail-card">
+            <div class="detail-header">
+              <div>
+                <div class="detail-name" id="det-name">VORTEK</div>
+                <div class="detail-meta">Ángulo: <span id="det-angle" style="color: #fff;">fabricar</span></div>
+                <div class="detail-meta">Formato: <span id="det-morphology" style="color: #fff;">blend</span></div>
+              </div>
+              <span class="badge-tier tier-A" id="det-tier">A</span>
+            </div>
+            
+            <p id="det-etymology" style="font-size: 0.85rem; line-height: 1.5; color: var(--text-muted);">
+              Etymology description.
+            </p>
+          </div>
+          
+          <!-- Radar Chart de Scores -->
+          <div class="chart-panel">
+            <h3>Métricas Compuestas</h3>
+            <div class="radar-wrapper">
+              <canvas id="radar-chart"></canvas>
+            </div>
+          </div>
+          
+          <!-- Test de Estrés / Taller -->
+          <div class="chart-panel">
+            <h3>Test de Estrés de Taller (Operativo)</h3>
+            
+            <div class="stress-test-item">
+              <div class="stress-lbl">Uso en taller</div>
+              <div class="stress-txt" id="stress-workshop">"Traeme el equipo ..."</div>
+            </div>
+            
+            <div class="stress-test-item">
+              <div class="stress-lbl">Submódulo / Variable</div>
+              <div class="stress-txt" id="stress-flota">"... Flota"</div>
+            </div>
+            
+            <div class="stress-test-item">
+              <div class="stress-lbl">Expansión vertical</div>
+              <div class="stress-txt" id="stress-industrial">"... Industrial"</div>
+            </div>
+            
+            <div class="stress-test-item">
+              <div class="stress-lbl">Serigrafía Física</div>
+              <div class="stress-txt" id="stress-serigrafia">"NAME serigrafiado"</div>
+            </div>
+          </div>
+          
+          <!-- Dominios -->
+          <div class="detail-card">
+            <h3>Registro e Infraestructura</h3>
+            <div style="font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.5rem;">
+              <div style="display: flex; justify-content: space-between;">
+                <span>Dominio .com</span>
+                <strong id="dom-com" class="status-ok">Disponible</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Dominio .com.ar</span>
+                <strong id="dom-com-ar" class="status-ok">Disponible</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span>Hits en Google</span>
+                <strong id="google-hits" style="font-family: monospace;">0</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+  
+  <!-- Overlay de carga inicial -->
+  <div class="load-overlay" id="loading-screen">
+    <div class="load-card">
+      <h2 id="load-title">Cargando resultados de naming</h2>
+      <p id="load-desc">Intentando cargar "results.json" de forma automática desde el directorio del proyecto...</p>
+      <button class="btn-primary" id="btn-load-fallback" style="display: none;">Cargar results.json Manualmente</button>
+      <input type="file" id="file-picker" style="display: none;" accept=".json">
+      <button class="btn-secondary" id="btn-mock">Ver Datos de Demostración (Mock)</button>
+    </div>
+  </div>
+
+  <script>
+    // Variables globales de datos
+    let rawData = null;
+    let filteredCandidates = [];
+    let selectedCandidate = null;
+    
+    // Instancias de Gráficos Chart.js
+    let funnelChartInst = null;
+    let evolutionChartInst = null;
+    let anglesChartInst = null;
+    let radarChartInst = null;
+    
+    // Configuración de visualización D3
+    let d3ScatterInst = null;
+    
+    // Filtros activos
+    const filters = {
+      tiers: new Set(["A", "B"]),
+      scoreMin: 50,
+      syllables: 4,
+      angle: "all",
+      domainCom: false,
+      domainComAr: false
+    };
+
+    // Al arrancar, intentar leer results.json automáticamente
+    document.addEventListener("DOMContentLoaded", () => {
+      initTabEvents();
+      initFilterEvents();
+      
+      // Auto fetch
+      fetch("results.json")
+        .then(response => {
+          if (!response.ok) throw new Error("results.json no encontrado en el servidor local.");
+          return response.json();
+        })
+        .then(data => {
+          loadProjectData(data);
+        })
+        .catch(err => {
+          console.warn("Fallo de carga automática. Habilitando fallback picker manual: ", err);
+          document.getElementById("load-title").innerText = "Resultados no detectados aún";
+          document.getElementById("load-desc").innerText = "Corta la ejecución de Python si sigue corriendo. Si el pipeline ya terminó, selecciona el archivo 'results.json' generado en tu carpeta.";
+          document.getElementById("btn-load-fallback").style.display = "block";
+        });
+        
+      // Handler para el input file
+      const picker = document.getElementById("file-picker");
+      const pickerBtn = document.getElementById("btn-load-fallback");
+      pickerBtn.addEventListener("click", () => picker.click());
+      picker.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          try {
+            const data = JSON.parse(evt.target.result);
+            loadProjectData(data);
+          } catch(err) {
+            alert("Error al parsear el JSON: " + err);
+          }
+        };
+        reader.readAsText(file);
+      });
+      
+      // Handler para ver el Mock de demostración
+      document.getElementById("btn-mock").addEventListener("click", () => {
+        loadMockData();
+      });
+    });
+
+    // ============================================================
+    // Carga de Datos y Stats
+    // ============================================================
+    function loadProjectData(data) {
+      rawData = data;
+      document.getElementById("loading-screen").style.display = "none";
+      
+      // Actualizar metadata del header
+      document.getElementById("stat-total").innerText = data.meta.total_generated || 1700;
+      document.getElementById("stat-unique").innerText = data.meta.total_after_dedup || data.candidates.length;
+      
+      const abCount = data.candidates.filter(c => c.tier === "A" || c.tier === "B").length;
+      document.getElementById("stat-tier-ab").innerText = abCount;
+      document.getElementById("stat-duration").innerText = (data.meta.duration_minutes || "15") + " min";
+      
+      // Iniciar filtros y render
+      updateFilteredData();
+      renderFunnelChart();
+      renderEvolutionChart();
+      renderAnglesChart();
+      
+      // Seleccionar el primer candidato por defecto
+      if (filteredCandidates.length > 0) {
+        selectCandidate(filteredCandidates[0]);
+      }
+    }
+
+    // Carga de Mock
+    function loadMockData() {
+      const mock = {
+        meta: { total_generated: 1700, total_after_dedup: 580, duration_minutes: 18.4 },
+        evolution: {
+          r1: { generated: 700, survived_prefilter: 250, avg_pre_score: 5.2 },
+          r2: { generated: 700, survived_prefilter: 220, avg_pre_score: 6.8 },
+          r3: { generated: 300, survived_prefilter: 110, avg_pre_score: 7.1 }
+        },
+        candidates: [
+          {
+            name: "VORTEK", tier: "A", angle: "fabricar", morphology: "inventado_tecnico", syllable_count: 2, etymology: "Concepto de vórtice energético cruzado con sufijo técnico 'tek'. Evoca dinamismo y durabilidad física.",
+            scores: { final: 84.5, relevance: 8.5, differentiation: 8.0, phonetic: 9.0, legal: 8.5, vertical_fit: 8.0, taller_fit: 9.0, pronounce_es: 9.5, pronounce_en: 8.5, pronounce_pt: 8.0, hardness: 8.0, rarity: 7.0 },
+            legal: { domain_com: false, domain_com_ar: true, google_hits_total: 1200 },
+            stress_test: { llama_a_los_de: "Traeme el equipo Vortek", vertical_flota: "Vortek Flota", vertical_industrial: "Vortek Industrial", serigrafia: "VORTEK serigrafiado en placa" }
+          },
+          {
+            name: "KALTRO", tier: "A", angle: "instrumento", morphology: "blend_2_raices", syllable_count: 2, etymology: "Fusión de 'kal' (duro, del taller) y 'tracker'. Sonido robusto que evoca anclaje firme en operaciones.",
+            scores: { final: 82.1, relevance: 8.0, differentiation: 8.5, phonetic: 8.5, legal: 8.0, vertical_fit: 8.5, taller_fit: 8.5, pronounce_es: 9.0, pronounce_en: 8.0, pronounce_pt: 7.5, hardness: 8.5, rarity: 6.5 },
+            legal: { domain_com: true, domain_com_ar: true, google_hits_total: 450 },
+            stress_test: { llama_a_los_de: "Traeme el equipo Kaltro", vertical_flota: "Kaltro Flota", vertical_industrial: "Kaltro Industrial", serigrafia: "KALTRO serigrafiado en placa" }
+          },
+          {
+            name: "VOLTIX", tier: "B", angle: "hecho_de", morphology: "inventado_tecnico", syllable_count: 2, etymology: "Derivado de Voltio (potencia eléctrica) y el sufijo dinámico 'X'. Sugiere conectividad de sensores rápida.",
+            scores: { final: 78.4, relevance: 7.5, differentiation: 7.5, phonetic: 8.0, legal: 8.5, vertical_fit: 7.5, taller_fit: 8.0, pronounce_es: 8.5, pronounce_en: 8.5, pronounce_pt: 8.0, hardness: 7.5, rarity: 8.0 },
+            legal: { domain_com: false, domain_com_ar: true, google_hits_total: 3200 },
+            stress_test: { llama_a_los_de: "Traeme el equipo Voltix", vertical_flota: "Voltix Flota", vertical_industrial: "Voltix Industrial", serigrafia: "VOLTIX serigrafiado en placa" }
+          },
+          {
+            name: "TRACKNEO", tier: "B", angle: "hace", morphology: "blend_2_raices", syllable_count: 3, etymology: "Cruce directo de la acción 'track' con 'neo' (nuevo). Directo y claro en su posicionamiento de telemetría.",
+            scores: { final: 71.2, relevance: 8.0, differentiation: 6.0, phonetic: 7.5, legal: 7.5, vertical_fit: 8.0, taller_fit: 7.5, pronounce_es: 8.5, pronounce_en: 8.0, pronounce_pt: 7.0, hardness: 6.5, rarity: 5.5 },
+            legal: { domain_com: false, domain_com_ar: false, google_hits_total: 12000 },
+            stress_test: { llama_a_los_de: "Traeme el equipo Trackneo", vertical_flota: "Trackneo Flota", vertical_industrial: "Trackneo Industrial", serigrafia: "TRACKNEO serigrafiado en placa" }
+          }
+        ]
+      };
+      loadProjectData(mock);
+    }
+
+    // ============================================================
+    // Filtros e Interacciones de UI
+    // ============================================================
+    function initTabEvents() {
+      const tabs = document.querySelectorAll(".tab-btn");
+      tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+          tabs.forEach(t => t.classList.remove("active"));
+          tab.classList.add("active");
+          
+          const contentId = tab.getAttribute("data-tab");
+          document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+          document.getElementById(contentId).classList.add("active");
+          
+          if (contentId === "tab-scatter") {
+            renderScatterPlot();
+          }
+        });
+      });
+    }
+
+    function initFilterEvents() {
+      // Filtro de Tiers
+      const tierBtns = document.querySelectorAll("#tier-filter .btn-toggle");
+      tierBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+          const tier = btn.getAttribute("data-tier");
+          if (filters.tiers.has(tier)) {
+            filters.tiers.delete(tier);
+            btn.classList.remove("active");
+          } else {
+            filters.tiers.add(tier);
+            btn.classList.add("active");
+          }
+          updateFilteredData();
+        });
+      });
+      
+      // Sliders
+      const scoreMin = document.getElementById("filter-score-min");
+      scoreMin.addEventListener("input", (e) => {
+        filters.scoreMin = parseInt(e.target.value);
+        document.getElementById("filter-score-min-val").innerText = filters.scoreMin;
+        updateFilteredData();
+      });
+      
+      const syllables = document.getElementById("filter-syllables");
+      syllables.addEventListener("input", (e) => {
+        filters.syllables = parseInt(e.target.value);
+        document.getElementById("filter-syllables-val").innerText = filters.syllables;
+        updateFilteredData();
+      });
+      
+      // Dropdown Ángulo
+      document.getElementById("filter-angle").addEventListener("change", (e) => {
+        filters.angle = e.target.value;
+        updateFilteredData();
+      });
+      
+      // Checkboxes Dominios
+      document.getElementById("filter-domain-com").addEventListener("change", (e) => {
+        filters.domainCom = e.target.checked;
+        updateFilteredData();
+      });
+      document.getElementById("filter-domain-com-ar").addEventListener("change", (e) => {
+        filters.domainComAr = e.target.checked;
+        updateFilteredData();
+      });
+      
+      // Export a CSV
+      document.getElementById("btn-export").addEventListener("click", () => {
+        exportCSV();
+      });
+    }
+
+    function updateFilteredData() {
+      if (!rawData) return;
+      
+      filteredCandidates = rawData.candidates.filter(c => {
+        if (!filters.tiers.has(c.tier)) return false;
+        if (c.scores.final < filters.scoreMin) return false;
+        if (c.syllable_count > filters.syllables) return false;
+        if (filters.angle !== "all" && c.angle !== filters.angle) return false;
+        if (filters.domainCom && !c.legal.domain_com) return false;
+        if (filters.domainComAr && !c.legal.domain_com_ar) return false;
+        return true;
+      });
+      
+      renderScatterPlot();
+      renderShortlistTable();
+    }
+
+    // ============================================================
+    // D3 Scatter Plot (Rareza vs Relevancia)
+    // ============================================================
+    function renderScatterPlot() {
+      const container = document.querySelector(".scatter-wrapper");
+      const width = container.clientWidth;
+      const height = container.clientHeight || 500;
+      
+      // Limpiar SVG previo
+      d3.select("#scatter-svg").selectAll("*").remove();
+      
+      const svg = d3.select("#scatter-svg")
+        .attr("width", width)
+        .attr("height", height);
+        
+      const margin = { top: 40, right: 40, bottom: 50, left: 50 };
+      const chartWidth = width - margin.left - margin.right;
+      const chartHeight = height - margin.top - margin.bottom;
+      
+      const g = svg.append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+        
+      // Escalas (Rareza X, Relevancia Y)
+      const x = d3.scaleLinear()
+        .domain([0, 10])
+        .range([0, chartWidth]);
+        
+      const y = d3.scaleLinear()
+        .domain([0, 10])
+        .range([chartHeight, 0]);
+        
+      // Ejes
+      g.append("g")
+        .attr("transform", `translate(0, ${chartHeight})`)
+        .call(d3.axisBottom(x).ticks(10))
+        .attr("color", "#4b5563")
+        .append("text")
+        .attr("x", chartWidth)
+        .attr("y", -10)
+        .attr("fill", "#9ca3af")
+        .attr("text-anchor", "end")
+        .attr("font-size", "10px")
+        .text("Rareza (Google Scarcity Score)");
+        
+      g.append("g")
+        .call(d3.axisLeft(y).ticks(10))
+        .attr("color", "#4b5563")
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 15)
+        .attr("dy", "0.71em")
+        .attr("fill", "#9ca3af")
+        .attr("text-anchor", "end")
+        .attr("font-size", "10px")
+        .text("Relevancia (Fit Semántico)");
+
+      // Cuadrante superior derecho - ZONA DE ORO
+      g.append("rect")
+        .attr("x", x(5))
+        .attr("y", y(10))
+        .attr("width", chartWidth - x(5))
+        .attr("height", y(5) - y(10))
+        .attr("fill", "rgba(16, 185, 129, 0.03)")
+        .attr("stroke", "rgba(16, 185, 129, 0.1)")
+        .attr("stroke-dasharray", "4");
+
+      g.append("text")
+        .attr("x", chartWidth - 10)
+        .attr("y", 20)
+        .attr("fill", "rgba(16, 185, 129, 0.4)")
+        .attr("text-anchor", "end")
+        .attr("font-size", "10px")
+        .attr("font-weight", "bold")
+        .text("ZONA DE ORO (Alta Rareza y Relevancia)");
+
+      // Color mapping
+      const colors = { A: "#10b981", B: "#3b82f6", C: "#f59e0b", D: "#ef4444" };
+      
+      const tooltip = d3.select("#scatter-tooltip");
+      
+      // Dibujar puntos
+      const dots = g.selectAll(".dot")
+        .data(filteredCandidates)
+        .enter().append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => x(d.scores.rarity || 5))
+        .attr("cy", d => y(d.scores.relevance || 5))
+        .attr("r", d => 6 + (d.scores.final - 50) / 10) // Tamaño proporcional al score final
+        .attr("fill", d => colors[d.tier] || "#9ca3af")
+        .attr("opacity", 0.75)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", d => selectedCandidate && selectedCandidate.name === d.name ? 2.5 : 0.5)
+        .style("cursor", "pointer")
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("opacity", 1.0);
+          tooltip.style("display", "block")
+            .html(`
+              <strong style="color:#fff; font-size:14px;">${d.name}</strong> <span class="badge-tier tier-${d.tier}">${d.tier}</span><br>
+              Score Final: <strong style="color:var(--accent-emerald)">${d.scores.final}</strong><br>
+              Relevancia: ${d.scores.relevance} | Rareza: ${d.scores.rarity}<br>
+              <span style="font-size:10px; color:#9ca3af;">Click para ver detalles</span>
+            `);
+        })
+        .on("mousemove", function(event) {
+          const containerOffset = container.getBoundingClientRect();
+          tooltip
+            .style("left", (event.clientX - containerOffset.left + 15) + "px")
+            .style("top", (event.clientY - containerOffset.top - 15) + "px");
+        })
+        .on("mouseout", function() {
+          d3.select(this).attr("opacity", 0.75);
+          tooltip.style("display", "none");
+        })
+        .on("click", function(event, d) {
+          selectCandidate(d);
+          renderScatterPlot(); // Re-render para actualizar borde seleccionado
+        });
+    }
+
+    // ============================================================
+    // Chart.js Gráficos
+    // ============================================================
+    function renderFunnelChart() {
+      const ctx = document.getElementById("funnel-chart").getContext("2d");
+      
+      // Contamos supervivientes dinámicos del funnel
+      const totalGen = rawData.meta.total_generated || 1700;
+      const uniqueGen = rawData.meta.total_after_dedup || 580;
+      
+      // Clasificación por pasos en base a cortes
+      const phoneticPass = rawData.candidates.length; // Supervivientes pre-filtro + fonética
+      const strategicPass = rawData.candidates.filter(c => c.scores.relevance >= 6.0).length;
+      const legalPass = rawData.candidates.filter(c => c.scores.relevance >= 6.0 && c.legal.domain_com_ar).length;
+      const shortlist = rawData.candidates.filter(c => c.tier === "A").length;
+      
+      if (funnelChartInst) funnelChartInst.destroy();
+      
+      funnelChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Generados (R1+R2)', 'Únicos (Dedup)', 'Fonetista (OK)', 'Estratega (Relevancia ≥6)', 'Legal (.com.ar OK)', 'Shortlist (Tier A)'],
+          datasets: [{
+            label: 'Candidatos',
+            data: [totalGen, uniqueGen, phoneticPass, strategicPass, legalPass, shortlist],
+            backgroundColor: [
+              'rgba(255, 255, 255, 0.1)',
+              'rgba(255, 255, 255, 0.2)',
+              'rgba(59, 130, 246, 0.4)',
+              'rgba(139, 92, 246, 0.4)',
+              'rgba(245, 158, 11, 0.4)',
+              'rgba(16, 185, 129, 0.6)'
+            ],
+            borderColor: [
+              'rgba(255, 255, 255, 0.2)',
+              'rgba(255, 255, 255, 0.3)',
+              '#3b82f6',
+              '#8b5cf6',
+              '#f59e0b',
+              '#10b981'
+            ],
+            borderWidth: 1,
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#9ca3af' }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#f3f4f6' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderEvolutionChart() {
+      const ctx = document.getElementById("evolution-chart").getContext("2d");
+      
+      const r1_avg = rawData.evolution?.r1?.avg_pre_score || 5.2;
+      const r2_avg = rawData.evolution?.r2?.avg_pre_score || 6.8;
+      const r3_avg = rawData.evolution?.r3?.avg_pre_score || 7.1;
+      
+      if (evolutionChartInst) evolutionChartInst.destroy();
+      
+      evolutionChartInst = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Ronda 1: Exploración', 'Ronda 2: Exemplars', 'Ronda 3: Mutaciones'],
+          datasets: [{
+            label: 'Score Promedio Pre-filtro',
+            data: [r1_avg, r2_avg, r3_avg],
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.3,
+            fill: true,
+            pointRadius: 6,
+            pointBackgroundColor: '#10b981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#9ca3af' } },
+            y: {
+              min: 0,
+              max: 10,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#9ca3af' }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAnglesChart() {
+      const ctx = document.getElementById("angles-chart").getContext("2d");
+      
+      // Agrupar candidatos y calcular promedio final_score por ángulo
+      const angleSums = {};
+      const angleCounts = {};
+      
+      rawData.candidates.forEach(c => {
+        angleSums[c.angle] = (angleSums[c.angle] || 0) + c.scores.final;
+        angleCounts[c.angle] = (angleCounts[c.angle] || 0) + 1;
+      });
+      
+      const labels = Object.keys(angleSums);
+      const data = labels.map(l => round(angleSums[l] / angleCounts[l], 1));
+      
+      if (anglesChartInst) anglesChartInst.destroy();
+      
+      anglesChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels.map(l => l.replace("_", " ")),
+          datasets: [{
+            data: data,
+            backgroundColor: 'rgba(59, 130, 246, 0.4)',
+            borderColor: '#3b82f6',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 } } },
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#9ca3af' }
+            }
+          }
+        }
+      });
+    }
+
+    // ============================================================
+    // Shortlist Table & Detail Panel
+    // ============================================================
+    function renderShortlistTable() {
+      const tbody = document.getElementById("shortlist-tbody");
+      tbody.innerHTML = "";
+      
+      filteredCandidates.forEach(c => {
+        const tr = document.createElement("tr");
+        if (selectedCandidate && selectedCandidate.name === c.name) {
+          tr.classList.add("selected");
+        }
+        
+        tr.innerHTML = `
+          <td><span class="badge-tier tier-${c.tier}">${c.tier}</span></td>
+          <td><strong style="color:#fff;">${c.name}</strong></td>
+          <td><span style="color:var(--text-muted);">${c.angle}</span></td>
+          <td>${c.syllable_count || 2}</td>
+          <td>${c.scores.phonetic}</td>
+          <td>${c.scores.relevance}</td>
+          <td>${c.scores.legal}</td>
+          <td>${c.scores.taller_fit || c.scores.taller_fit_score || 0}</td>
+          <td><strong style="color:var(--accent-emerald);">${c.scores.final}</strong></td>
+        `;
+        
+        tr.addEventListener("click", () => {
+          selectCandidate(c);
+          // Actualizar fila seleccionada en UI
+          document.querySelectorAll("#shortlist-tbody tr").forEach(row => row.classList.remove("selected"));
+          tr.classList.add("selected");
+        });
+        
+        tbody.appendChild(tr);
+      });
+    }
+
+    function selectCandidate(candidate) {
+      selectedCandidate = candidate;
+      
+      document.getElementById("no-detail-selected").style.display = "none";
+      document.getElementById("detail-panel").style.display = "block";
+      
+      // Textos basicos
+      document.getElementById("det-name").innerText = candidate.name;
+      document.getElementById("det-angle").innerText = candidate.angle;
+      document.getElementById("det-morphology").innerText = candidate.morphology || "blend";
+      document.getElementById("det-etymology").innerText = candidate.etymology || candidate.etimologia || "Sin descripción semántica.";
+      
+      const tierBadge = document.getElementById("det-tier");
+      tierBadge.innerText = candidate.tier;
+      tierBadge.className = `badge-tier tier-${candidate.tier}`;
+      
+      // Dominios e Infraestructura
+      const com = document.getElementById("dom-com");
+      com.innerText = candidate.legal.domain_com ? "Disponible" : "Registrado";
+      com.className = candidate.legal.domain_com ? "status-ok" : "status-fail";
+      
+      const comAr = document.getElementById("dom-com-ar");
+      comAr.innerText = candidate.legal.domain_com_ar ? "Disponible" : "Registrado";
+      comAr.className = candidate.legal.domain_com_ar ? "status-ok" : "status-fail";
+      
+      document.getElementById("google-hits").innerText = candidate.legal.google_hits_total || candidate.legal.google_results || "0";
+      
+      // Test de estrés
+      document.getElementById("stress-workshop").innerText = candidate.stress_test?.llama_a_los_de || `Traeme el equipo ${candidate.name}`;
+      document.getElementById("stress-flota").innerText = candidate.stress_test?.vertical_flota || `${candidate.name} Flota`;
+      document.getElementById("stress-industrial").innerText = candidate.stress_test?.vertical_industrial || `${candidate.name} Industrial`;
+      document.getElementById("stress-serigrafia").innerText = candidate.stress_test?.serigrafia || `${candidate.name} en case 3D`;
+      
+      // Dibujar Radar Chart
+      renderRadarChart(candidate);
+    }
+
+    function renderRadarChart(candidate) {
+      const ctx = document.getElementById("radar-chart").getContext("2d");
+      
+      const scores = [
+        candidate.scores.relevance,
+        candidate.scores.differentiation,
+        candidate.scores.phonetic,
+        candidate.scores.legal,
+        candidate.scores.vertical_fit,
+        candidate.scores.taller_fit || 6.0
+      ];
+      
+      if (radarChartInst) radarChartInst.destroy();
+      
+      radarChartInst = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: ['Relevancia', 'Diferenciación', 'Fonética', 'Legal / Escasez', 'Fit Vertical', 'Taller Fit'],
+          datasets: [{
+            data: scores,
+            backgroundColor: 'rgba(16, 185, 129, 0.2)',
+            borderColor: '#10b981',
+            borderWidth: 2,
+            pointBackgroundColor: '#10b981'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            r: {
+              angleLines: { color: 'rgba(255, 255, 255, 0.08)' },
+              grid: { color: 'rgba(255, 255, 255, 0.08)' },
+              pointLabels: { color: '#9ca3af', font: { size: 9 } },
+              ticks: { display: false },
+              min: 0,
+              max: 10
+            }
+          }
+        }
+      });
+    }
+
+    // ============================================================
+    // Helpers
+    // ============================================================
+    function round(num, decimals) {
+      return Number(Math.round(num + 'e' + decimals) + 'e-' + decimals);
+    }
+    
+    function exportCSV() {
+      if (!filteredCandidates.length) {
+        alert("No hay datos para exportar.");
+        return;
+      }
+      
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Tier,Nombre,Angulo,Silabas,Fonetica,Relevancia,Legal,Taller,Score Final,Etimologia\n";
+      
+      filteredCandidates.forEach(c => {
+        const row = [
+          c.tier,
+          c.name,
+          c.angle,
+          c.syllable_count || 2,
+          c.scores.phonetic,
+          c.scores.relevance,
+          c.scores.legal,
+          c.scores.taller_fit || 0,
+          c.scores.final,
+          `"${(c.etymology || "").replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(",") + "\n";
+      });
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `shortlist_naming_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
